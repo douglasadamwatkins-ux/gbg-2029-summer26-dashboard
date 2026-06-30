@@ -9,6 +9,15 @@ const C = {
   text:"#e2e8f0", subtext:"#94a3b8", purple:"#a855f7",
 };
 
+// ── TOURNAMENTS ──────────────────────────────────────────────────────────────
+const TOURNAMENTS = [
+  {id:"gbg-rr",      label:"GBG Round Robin",              games:[0,1,2],          color:C.green},
+  {id:"mhs",         label:"Mile High Shootout",           games:[3,4,5,6],        color:C.blue},
+  {id:"gb",          label:"Gold Rush Bracket",            games:[7,8,9,10],       color:C.purple},
+  {id:"15u-natl",    label:"15U National Championship",    games:[11,12,13,14,15], color:C.teal},
+  {id:"ftc",         label:"Five Tool Colorado Legends",   games:[16,17,18,19],    color:C.accent},
+];
+
 // ── GAME DATA ─────────────────────────────────────────────────────────────────
 const GAMES = [
   { id:1,  date:"May 30", opp:"GBG Navy",       result:"W", score:"6-2"  },
@@ -1284,6 +1293,67 @@ function RosterTable({ selectedIdx }) {
   );
 }
 
+// ── TOURNAMENT SELECTOR ───────────────────────────────────────────────────────
+function TournamentSelector({ selectedTournament, setSelectedTournament, setSelectedIdx }) {
+  const allIdx = GAMES.map((_,i)=>i);
+  
+  const handleTournament = (tournamentId) => {
+    if (selectedTournament === tournamentId) {
+      // Clicking same tournament again: show all games
+      setSelectedTournament(null);
+      setSelectedIdx(allIdx);
+    } else {
+      // Select this tournament
+      setSelectedTournament(tournamentId);
+      const t = TOURNAMENTS.find(x => x.id === tournamentId);
+      if (t) setSelectedIdx(t.games);
+    }
+  };
+
+  return (
+    <div style={{maxWidth:1100,margin:"0 auto 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+        <div style={{height:2,width:20,background:C.accent,borderRadius:2}}/>
+        <div style={{fontSize:13,fontWeight:800,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em"}}>Tournaments</div>
+        <div style={{flex:1,height:1,background:C.border}}/>
+        <div style={{fontSize:10,color:C.muted}}>Tap to filter by tournament · tap again to reset</div>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {TOURNAMENTS.map(t => {
+          const isActive = selectedTournament === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => handleTournament(t.id)}
+              style={{
+                background: isActive ? `${t.color}22` : C.panel,
+                border: `2px solid ${isActive ? t.color : C.border}`,
+                color: isActive ? t.color : C.text,
+                borderRadius: 10,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: isActive ? 700 : 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+              onMouseEnter={e=>{
+                if(!isActive) e.currentTarget.style.borderColor = t.color;
+              }}
+              onMouseLeave={e=>{
+                if(!isActive) e.currentTarget.style.borderColor = C.border;
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── GAME SELECTOR ─────────────────────────────────────────────────────────────
 function GameSelector({ selectedIdx, setSelectedIdx }) {
   const [open, setOpen] = useState(false);
@@ -1389,6 +1459,7 @@ function GameSelector({ selectedIdx, setSelectedIdx }) {
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedTournament, setSelectedTournament] = useState(null);
   const allIdx = GAMES.map((_,i)=>i);
   const [selectedIdx, setSelectedIdx] = useState(allIdx);
   const isFiltered = selectedIdx.length !== GAMES.length;
@@ -1438,10 +1509,13 @@ export default function App() {
           <div style={{marginTop:10,fontSize:10,color:C.muted,display:"flex",alignItems:"center",gap:6}}>
             <span style={{color:C.accent}}>●</span>
             Filter active — Team &amp; Grayson panels, Hot/Cold, Batting Roster, and the header record reflect selected games. Panels marked <SeasonBadge/> show season totals (Pitching Load &amp; OPS rankings still by season).
-            <button onClick={()=>setSelectedIdx(allIdx)} style={{marginLeft:"auto",background:"none",border:`1px solid ${C.accent}`,color:C.accent,borderRadius:5,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Reset to all</button>
+            <button onClick={()=>{setSelectedIdx(allIdx); setSelectedTournament(null);}} style={{marginLeft:"auto",background:"none",border:`1px solid ${C.accent}`,color:C.accent,borderRadius:5,padding:"2px 8px",fontSize:10,cursor:"pointer",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Reset to all</button>
           </div>
         )}
       </div>
+
+      {/* Tournament Selector */}
+      <TournamentSelector selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} setSelectedIdx={setSelectedIdx}/>
 
       {/* Grid */}
       <div style={{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
