@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis } from "recharts";
-import gamesData from "./games-data.json";
 
 // ── PALETTE ───────────────────────────────────────────────────────────────────
 const C = {
@@ -21,147 +20,111 @@ const TOURNAMENTS = [
   {id:"wwba",        label:"WWBA National Championship",   games:[24],             color:"#f59e0b"},
 ];
 
-// ── DERIVE DATA FROM games-data.json ──────────────────────────────────────────
+// ── GAME DATA ─────────────────────────────────────────────────────────────────
+const GAMES = [
+  { id:1,  date:"May 30", opp:"GBG Navy",       result:"W", score:"6-2"  },
+  { id:2,  date:"May 30", opp:"GBG 2028",        result:"W", score:"9-7"  },
+  { id:3,  date:"May 31", opp:"GBG 2027",        result:"W", score:"5-3"  },
+  { id:4,  date:"Jun 4",  opp:"Hitstreak",       result:"W", score:"10-0" },
+  { id:5,  date:"Jun 5",  opp:"Highlanders",     result:"W", score:"4-3"  },
+  { id:6,  date:"Jun 6",  opp:"CIL Gold",        result:"W", score:"6-4"  },
+  { id:7,  date:"Jun 7",  opp:"ONE6",            result:"L", score:"3-4"  },
+  { id:8,  date:"Jun 11", opp:"COBSBL",          result:"T", score:"7-7"  },
+  { id:9,  date:"Jun 11", opp:"RoughRiders",     result:"L", score:"1-6"  },
+  { id:10, date:"Jun 13", opp:"Colo Select",     result:"W", score:"12-4" },
+  { id:11, date:"Jun 13", opp:"Ark Valley",      result:"L", score:"3-6"  },
+  { id:12, date:"Jun 18", opp:"Titans 15U",      result:"W", score:"9-4"  },
+  { id:13, date:"Jun 19", opp:"Exposure Natl",    result:"L", score:"1-2"  },
+  { id:14, date:"Jun 20", opp:"Ascent Athlete",   result:"L", score:"0-9"  },
+  { id:15, date:"Jun 21", opp:"Team Elite Plat",   result:"W", score:"7-0"  },
+  { id:16, date:"Jun 22", opp:"STL Naturals",      result:"L", score:"3-10" },
+  { id:17, date:"Jun 25", opp:"ONE6 Lambert",      result:"L", score:"1-9"  },
+  { id:18, date:"Jun 25", opp:"Box State Recr",    result:"W", score:"7-4"  },
+  { id:19, date:"Jun 26", opp:"7one9 S&K 17u",   result:"L", score:"0-8"  },
+  { id:20, date:"Jun 26", opp:"Generals Jr",     result:"W", score:"8-0"  },
+  { id:21, date:"Jul 10", opp:"Dallas Nationals", result:"W", score:"9-6"  },
+  { id:22, date:"Jul 10", opp:"Lojo 15u Green",  result:"W", score:"15-3" },
+  { id:23, date:"Jul 11", opp:"Texas Sparta",    result:"W", score:"9-1"  },
+  { id:24, date:"Jul 12", opp:"Dallas Nationals", result:"L", score:"6-8"  },
+  { id:25, date:"Jul 17", opp:"REB Sports A",     result:"W", score:"13-1" },
+];
 
-// Build GAMES array
-const GAMES = gamesData.games.map(g => ({
-  id: g.id,
-  date: g.date,
-  opp: g.opponent,
-  result: g.result,
-  score: g.score
-}));
+const GBG_RUNS  = [6,9,5,10,4,6,3,7,1,12,3,9,1,0,7,3,1,7,0,8,9,15,9,6,13];
+const OPP_RUNS  = [2,7,3,0,3,4,4,7,6,4,6,4,2,9,0,10,9,4,8,0,6,3,1,8,1];
 
-// Build runs arrays
-const GBG_RUNS = gamesData.games.map(g => g.gbgRuns);
-const OPP_RUNS = gamesData.games.map(g => g.oppRuns);
+const TEAM_GAMES = [
+  {ab:28,r: 6, h: 8,d:3,t:0,hr:0,rbi: 5, bb: 4, hbp:0, so: 9 },
+  {ab:20,r: 9, h: 3,d:0,t:0,hr:0,rbi: 5, bb: 7, hbp:2, so: 5 },
+  {ab:17,r: 5, h: 4,d:0,t:0,hr:0,rbi: 5, bb:10, hbp:2, so: 4 },
+  {ab:17,r:10, h: 8,d:5,t:0,hr:0,rbi: 8, bb: 5, hbp:3, so: 2 },
+  {ab:24,r: 4, h: 6,d:1,t:1,hr:0,rbi: 3, bb: 5, hbp:1, so: 2 },
+  {ab:24,r: 6, h: 8,d:3,t:1,hr:0,rbi: 5, bb: 6, hbp:0, so: 7 },
+  {ab:25,r: 3, h: 5,d:2,t:0,hr:0,rbi: 2, bb: 4, hbp:3, so: 6 },
+  {ab:26,r: 7, h: 6,d:2,t:1,hr:0,rbi: 5, bb: 5, hbp:0, so: 4 },
+  {ab:18,r: 1, h: 3,d:1,t:0,hr:1,rbi: 1, bb: 1, hbp:0, so: 9 },
+  {ab:25,r:12, h: 6,d:2,t:0,hr:1,rbi: 7, bb:10, hbp:0, so: 8 },
+  {ab:27,r: 3, h: 8,d:1,t:0,hr:0,rbi: 3, bb: 2, hbp:0, so: 9 },
+  {ab:21,r: 9, h: 8,d:1,t:0,hr:0,rbi: 5, bb: 6, hbp:0, so: 1 },
+  {ab:24,r: 1, h: 5,d:0,t:1,hr:0,rbi: 1, bb: 2, hbp:3, so: 9 },
+  {ab:24,r: 0, h: 7,d:0,t:0,hr:0,rbi: 0, bb: 0, hbp:0, so: 3 },
+  {ab:23,r: 7, h: 6,d:1,t:1,hr:0,rbi: 3, bb: 4, hbp:0, so: 5 },
+  {ab:21,r: 3, h: 2,d:0,t:0,hr:0,rbi: 3, bb: 3, hbp:1, so: 5 },
+  {ab:21,r: 1, h: 4,d:0,t:1,hr:0,rbi: 1, bb: 1, hbp:0, so: 8 },
+  {ab:32,r: 7, h:11,d:2,t:0,hr:0,rbi: 7, bb: 2, hbp:0, so: 6 },
+  {ab:15,r: 0, h: 6,d:0,t:0,hr:0,rbi: 0, bb: 2, hbp:0, so: 3 },
+  {ab:28,r: 8, h:11,d:2,t:2,hr:0,rbi: 6, bb: 2, hbp:0, so: 5 },
+  {ab:33,r: 9, h:10,d:3,t:1,hr:0,rbi: 7, bb: 2, hbp:1, so: 8 },
+  {ab:20,r:15, h: 8,d:3,t:0,hr:1,rbi:13, bb:10, hbp:2, so: 3 },
+  {ab:22,r: 9, h: 7,d:3,t:0,hr:1,rbi: 7, bb: 6, hbp:2, so: 4 },
+  {ab:23,r: 6, h:11,d:2,t:0,hr:0,rbi: 5, bb: 1, hbp:2, so: 4 },
+  {ab:18,r:13, h: 8,d:1,t:0,hr:2,rbi:12, bb: 4, hbp:1, so: 2 },
+];
 
-// Build TEAM_GAMES
-const TEAM_GAMES = gamesData.games.map(g => g.teamStats);
+const GRAYSON_GAMES = [
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,pos:"C"},
+  {ab:3,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"1B"},
+  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:2,h:2,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"1B"},
+  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,pos:"C"},
+  {ab:0,h:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,pos:"C"},
+  {ab:2,h:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:3,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
+  {ab:3,h:3,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"1B"},
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
+  {ab:2,h:2,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"EH"},
+  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
+  {ab:3,h:3,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,pos:"EH"},
+  {ab:2,h:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,pos:"C"},
+  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
+  {ab:1,h:1,d:1,t:0,hr:0,rbi:2,bb:2,hbp:0,sf:0,pos:"C"},
+  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
+  {ab:1,h:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,pos:"C"},
+  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
+];
 
-// Build PLAYER_GAME_LOG by iterating games and collecting per-player stats
-const PLAYER_GAME_LOG = {};
-const allPlayers = new Set();
+const ROSTER = [
+  {name:"J Bradley",   num:14, g:25,ab:70,r:23, h:25,d:7,t:3,hr:2,tb:47,rbi:12, bb:11, hbp:1,sf:1,so: 9, sb:13, avg:0.357,obp:0.443,slg:0.671,ops:1.114},
+  {name:"R Enochs",    num: 3, g:25,ab:63,r:16, h:29,d:3,t:0,hr:1,tb:35,rbi:21, bb: 9, hbp:2,sf:0,so:11, sb: 9, avg:0.460,obp:0.538,slg:0.556,ops:1.094},
+  {name:"E West",      num:30, g:21,ab:49,r:12, h:14,d:5,t:0,hr:0,tb:19,rbi:10, bb: 9, hbp:1,sf:0,so:12, sb: 0, avg:0.286,obp:0.400,slg:0.388,ops:0.788},
+  {name:"C Davies",    num: 1, g:23,ab:48,r:11, h:12,d:2,t:0,hr:1,tb:18,rbi:15, bb: 6, hbp:2,sf:1,so:17, sb: 0, avg:0.250,obp:0.324,slg:0.375,ops:0.699},
+  {name:"J Farmer",    num:17, g:19,ab:42,r:13, h:13,d:2,t:2,hr:0,tb:19,rbi: 8, bb: 7, hbp:0,sf:0,so: 6, sb: 4, avg:0.310,obp:0.408,slg:0.452,ops:0.860},
+  {name:"P Martin",    num: 5, g:22,ab:46,r: 8, h:11,d:3,t:1,hr:0,tb:16,rbi: 7, bb: 5, hbp:1,sf:0,so:12, sb: 4, avg:0.239,obp:0.318,slg:0.348,ops:0.666},
+  {name:"J O'Connor",  num:12, g:21,ab:43,r:16, h:12,d:5,t:1,hr:0,tb:19,rbi:13, bb: 6, hbp:8,sf:0,so: 5, sb: 2, avg:0.279,obp:0.447,slg:0.442,ops:0.889},
+  {name:"G Watkins",   num:21, g:22,ab:39,r: 7, h:14,d:4,t:0,hr:0,tb:18,rbi: 8, bb: 6, hbp:1,sf:1,so: 5, sb: 0, avg:0.359,obp:0.447,slg:0.462,ops:0.909},
+  {name:"J Seda",      num: 8, g:22,ab:42,r:12, h:11,d:2,t:2,hr:1,tb:21,rbi: 6, bb:20, hbp:1,sf:0,so:19, sb: 8, avg:0.262,obp:0.517,slg:0.500,ops:1.017},
+  {name:"C Sherpa",    num:22, g:22,ab:37,r: 6, h: 8,d:1,t:0,hr:0,tb: 9,rbi: 3, bb: 7, hbp:1,sf:0,so: 7, sb: 2, avg:0.216,obp:0.348,slg:0.243,ops:0.591},
+  {name:"J Holder",    num: 4, g:23,ab:37,r:17, h:12,d:4,t:0,hr:0,tb:16,rbi: 4, bb: 8, hbp:0,sf:0,so: 6, sb: 2, avg:0.324,obp:0.429,slg:0.432,ops:0.861},
+  {name:"A Gomes",     num:28, g:17,ab:30,r: 8, h: 4,d:0,t:0,hr:0,tb: 4,rbi: 6, bb: 5, hbp:4,sf:1,so:14, sb: 1, avg:0.133,obp:0.348,slg:0.133,ops:0.481},
+  {name:"C Carter",    num:27, g:14,ab:27,r: 6, h: 6,d:2,t:0,hr:1,tb:11,rbi: 6, bb: 5, hbp:0,sf:0,so: 7, sb: 1, avg:0.222,obp:0.333,slg:0.407,ops:0.740},
+  {name:"TEAM",        num: 0, g:25,ab:561,r:194, h:169,d:47,t:3,hr:5,tb:241,rbi:170, bb:113, hbp:23,sf:7,so:148, sb:60, avg:0.301,obp:0.423,slg:0.429,ops:0.852},
+];
 
-// First pass: collect all player names
-gamesData.games.forEach(game => {
-  Object.keys(game.playerStats || {}).forEach(name => allPlayers.add(name));
-});
-
-// Second pass: build per-player arrays
-allPlayers.forEach(player => {
-  PLAYER_GAME_LOG[player] = gamesData.games.map(game => 
-    game.playerStats[player] || {h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}
-  );
-});
-
-// Build GRAYSON_GAMES from PLAYER_GAME_LOG
-const GRAYSON_GAMES = (PLAYER_GAME_LOG["G Watkins"] || []).map(stats => ({
-  ab: stats.ab,
-  h: stats.h,
-  d: stats.d,
-  t: stats.t,
-  hr: stats.hr,
-  rbi: stats.rbi,
-  bb: stats.bb,
-  hbp: stats.hbp,
-  sf: stats.sf,
-  pos: stats.ab === 0 && stats.bb === 0 && stats.hbp === 0 ? "DNP" : "C"
-}));
-
-// Build ROSTER by summing season stats per player
-const ROSTER = Array.from(allPlayers).map(name => {
-  const games = PLAYER_GAME_LOG[name] || [];
-  const stats = {ab:0, r:0, h:0, d:0, t:0, hr:0, rbi:0, bb:0, hbp:0, sf:0, so:0, sb:0};
-  
-  games.forEach(g => {
-    Object.keys(stats).forEach(k => { stats[k] += g[k] || 0; });
-  });
-  
-  const tb = stats.h - stats.d - stats.t - stats.hr + 2*stats.d + 3*stats.t + 4*stats.hr;
-  const g = games.filter(game => (game.ab||0) + (game.bb||0) + (game.hbp||0) + (game.sf||0) > 0).length;
-  
-  const avg = stats.ab > 0 ? parseFloat((stats.h / stats.ab).toFixed(3)) : 0;
-  const obp = (stats.ab + stats.bb + stats.hbp + stats.sf) > 0 
-    ? parseFloat(((stats.h + stats.bb + stats.hbp) / (stats.ab + stats.bb + stats.hbp + stats.sf)).toFixed(3))
-    : 0;
-  const slg = stats.ab > 0 ? parseFloat((tb / stats.ab).toFixed(3)) : 0;
-  const ops = parseFloat((obp + slg).toFixed(3));
-  
-  return {
-    name,
-    num: 0,
-    g, ab: stats.ab, r: stats.r, h: stats.h, d: stats.d, t: stats.t, hr: stats.hr, tb,
-    rbi: stats.rbi, bb: stats.bb, hbp: stats.hbp, sf: stats.sf, so: stats.so, sb: stats.sb,
-    avg, obp, slg, ops
-  };
-}).sort((a,b) => b.h - a.h);
-
-// Add TEAM row (cumulative totals)
-const teamTotal = TEAM_GAMES.reduce((sum, game) => ({
-  ab: sum.ab + game.ab,
-  r: sum.r + game.r,
-  h: sum.h + game.h,
-  d: sum.d + game.d,
-  t: sum.t + game.t,
-  hr: sum.hr + game.hr,
-  rbi: sum.rbi + game.rbi,
-  bb: sum.bb + game.bb,
-  hbp: sum.hbp + game.hbp,
-  sf: sum.sf + game.sf,
-  so: sum.so + game.so,
-}), {ab:0, r:0, h:0, d:0, t:0, hr:0, rbi:0, bb:0, hbp:0, sf:0, so:0});
-
-const teamTB = teamTotal.h - teamTotal.d - teamTotal.t - teamTotal.hr + 2*teamTotal.d + 3*teamTotal.t + 4*teamTotal.hr;
-const teamAvg = teamTotal.ab > 0 ? parseFloat((teamTotal.h / teamTotal.ab).toFixed(3)) : 0;
-const teamOBP = (teamTotal.ab + teamTotal.bb + teamTotal.hbp + teamTotal.sf) > 0 
-  ? parseFloat(((teamTotal.h + teamTotal.bb + teamTotal.hbp) / (teamTotal.ab + teamTotal.bb + teamTotal.hbp + teamTotal.sf)).toFixed(3))
-  : 0;
-const teamSLG = teamTotal.ab > 0 ? parseFloat((teamTB / teamTotal.ab).toFixed(3)) : 0;
-const teamOPS = parseFloat((teamOBP + teamSLG).toFixed(3));
-
-ROSTER.push({
-  name: "TEAM",
-  num: 0,
-  g: GAMES.length,
-  ab: teamTotal.ab,
-  r: teamTotal.r,
-  h: teamTotal.h,
-  d: teamTotal.d,
-  t: teamTotal.t,
-  hr: teamTotal.hr,
-  tb: teamTB,
-  rbi: teamTotal.rbi,
-  bb: teamTotal.bb,
-  hbp: teamTotal.hbp,
-  sf: teamTotal.sf,
-  so: teamTotal.so,
-  sb: 0,
-  avg: teamAvg,
-  obp: teamOBP,
-  slg: teamSLG,
-  ops: teamOPS
-});
-
-// Build RECENT_GAMES_IDX
-const RECENT_GAMES_IDX = GAMES.length >= 3 
-  ? [GAMES.length - 3, GAMES.length - 2, GAMES.length - 1]
-  : GAMES.length >= 2
-  ? [GAMES.length - 2, GAMES.length - 1]
-  : [0];
-
-// Build GAME_BATTING and GAME_AB (last 3 games)
-const GAME_BATTING = {};
-const GAME_AB = {};
-
-Array.from(allPlayers).forEach(name => {
-  const games = PLAYER_GAME_LOG[name] || [];
-  const last3 = games.slice(-3);
-  GAME_BATTING[name] = last3.map(g => g.h || 0);
-  GAME_AB[name] = last3.map(g => g.ab || 0);
-});
-
-// Pitching data (kept from dashboard)
 const PITCHING = [
   {name:"J O'Connor",  num:12,g:6,ip:"18.2",h:16, r:16, er:11,bb:19, so:22,hbp:3,era:5.30,whip:1.88,k9:10.6, pitches:379,strikes:207},
   {name:"C Carter",    num:27,g:5,ip:"13.0",h:9, r:10, er:5,bb:12, so:16,hbp:2,era:3.46,whip:1.62,k9:11.1, pitches:253,strikes:133},
@@ -174,7 +137,62 @@ const PITCHING = [
   {name:"E West",      num:30,g:4,ip:"10.0",h:13, r:15, er:7,bb:11, so:8,hbp:2,era:6.30,whip:2.40,k9:7.2, pitches:161,strikes:93},
 ];
 
-// ── FUNCTIONS & COMPONENTS ────────────────────────────────────────────────────
+const RECENT_GAMES_IDX = [22,23,24];
+const GAME_BATTING = {
+  "R Enochs": [0, 1, 1],
+  "J Bradley": [1, 0, 2],
+  "G Watkins": [0, 1, 1],
+  "E West": [0, 0, 0],
+  "J Farmer": [0, 3, 0],
+  "J Holder": [0, 0, 1],
+  "J O'Connor": [0, 1, 0],
+  "P Martin": [0, 3, 2],
+  "C Sherpa": [1, 1, 0],
+  "J Seda": [1, 0, 0],
+  "C Davies": [3, 1, 0],
+  "C Carter": [0, 0, 1],
+  "A Gomes": [1, 0, 1],
+};
+const GAME_AB = {
+  "R Enochs": [2, 2, 3],
+  "J Bradley": [3, 3, 3],
+  "G Watkins": [1, 1, 0],
+  "E West": [0, 2, 2],
+  "J Farmer": [0, 4, 0],
+  "J Holder": [2, 0, 1],
+  "J O'Connor": [3, 1, 0],
+  "P Martin": [1, 4, 2],
+  "C Sherpa": [1, 2, 2],
+  "J Seda": [1, 1, 1],
+  "C Davies": [3, 1, 0],
+  "C Carter": [1, 2, 2],
+  "A Gomes": [2, 1, 2],
+};
+
+
+// Team season batting average — used as the reference line on AVG charts
+const TEAM_SEASON_AVG = (() => {
+  let h = 0, ab = 0;
+  ROSTER.forEach(p => { h += p.h; ab += p.ab; });
+  return ab > 0 ? h / ab : 0;
+})();
+
+// Per-game H and AB for every player (all 24 games) for rolling AVG popup
+const PLAYER_GAME_LOG = {
+  "R Enochs":    [{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:2,ab:2,r:2,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0},{h:3,ab:4,r:0,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:1,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:2,d:0,t:0,hr:0,rbi:1,bb:2,hbp:0,sf:0,so:1,sb:2},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:0,t:0,hr:0,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:2,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:2,d:1,t:0,hr:0,rbi:3,bb:1,hbp:0,sf:0,so:0,sb:4},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:3,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "J Bradley":   [{h:3,ab:4,r:2,d:2,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:2},{h:1,ab:1,r:3,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:2},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:1,sf:1,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:2,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:1,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:2},{h:1,ab:3,r:0,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:2},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:2,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:2,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:1,t:0,hr:1,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "E West":      [{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:4,r:1,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "J Farmer":    [{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:3,bb:2,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:2,d:0,t:1,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:1,bb:2,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "J Holder":    [{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "J O'Connor":  [{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:3,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:1,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:2,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:1,d:1,t:0,hr:0,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0}],
+  "P Martin":    [{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:1},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:1},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:4,r:1,d:1,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:2,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "C Sherpa":    [{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0}],
+  "J Seda":      [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:1},{h:1,ab:2,r:1,d:0,t:1,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:3,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:2,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:2,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:1,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:2,d:0,t:0,hr:1,rbi:3,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:2,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0}],
+  "C Davies":    [{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:3,bb:0,hbp:1,sf:1,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:1,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:3,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:3,ab:3,r:2,d:1,t:0,hr:0,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0}],
+  "C Carter":    [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:2,d:0,t:0,hr:1,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0}],
+  "A Gomes":     [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0}],
+  "G Watkins":   [{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,so:0,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:3,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:2,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
+};
 
 function ipdec(s) {
   const [w,f] = String(s).split(".");
