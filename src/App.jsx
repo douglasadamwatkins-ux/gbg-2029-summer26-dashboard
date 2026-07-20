@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis } from "recharts";
-import gamesData from "./games-data.json";
+import GAMES_DATA from "./games-data.json";
 
 // ── PALETTE ───────────────────────────────────────────────────────────────────
 const C = {
@@ -10,158 +10,126 @@ const C = {
   text:"#e2e8f0", subtext:"#94a3b8", purple:"#a855f7",
 };
 
+// ── DATA SOURCE ────────────────────────────────────────────────────────────────
+// Everything below is derived from games-data.json (per-game team + player box
+// scores). That JSON is the single source of truth for game results, stats, and
+// tournament grouping — no game/stat data should be hand-duplicated here.
+//
+// Two things are NOT in games-data.json and stay as small manual lookups:
+// jersey numbers, and Grayson's per-game defensive position. Pitching stats also
+// aren't in the JSON yet, so PITCHING below is still hand-maintained.
+
+const JERSEY_NUMBERS = {
+  "J Bradley":14, "R Enochs":3, "E West":30, "C Davies":1, "J Farmer":17, "P Martin":5,
+  "J O'Connor":12, "G Watkins":21, "J Seda":8, "C Sherpa":22, "J Holder":4, "A Gomes":28, "C Carter":27,
+};
+
+// One entry per game in GAMES_DATA.games, in the same order.
+const GRAYSON_POSITIONS = ["C","1B","C","1B","C","C","C","C","DNP","C","1B","C","DH","DH","C","EH","DNP","C","EH","C","DH","C","C","C","DNP"];
+
 // ── TOURNAMENTS ──────────────────────────────────────────────────────────────
-const TOURNAMENTS = [
-  {id:"gbg-rr",      label:"GBG Round Robin",              games:[0,1,2],          color:C.green},
-  {id:"mhs",         label:"Mile High Shootout",           games:[3,4,5,6],        color:C.blue},
-  {id:"gb",          label:"Gold Rush Bracket",            games:[7,8,9,10],       color:C.purple},
-  {id:"15u-natl",    label:"15U National Championship",    games:[11,12,13,14,15], color:C.teal},
-  {id:"ftc",         label:"Five Tool Colorado Legends",   games:[16,17,18,19],    color:C.accent},
-  {id:"fttx",        label:"Five Tool Texas Summer",       games:[20,21,22,23],    color:C.teal},
-  {id:"wwba",        label:"WWBA National Championship",   games:[24],             color:"#f59e0b"},
+const TOURNAMENT_META = [
+  {id:"gbg-rr",      label:"GBG Round Robin",              color:C.green},
+  {id:"mhs",         label:"Mile High Shootout",           color:C.blue},
+  {id:"gb",          label:"Gold Rush Bracket",            color:C.purple},
+  {id:"15u-natl",    label:"15U National Championship",    color:C.teal},
+  {id:"ftc",         label:"Five Tool Colorado Legends",   color:C.accent},
+  {id:"fttx",        label:"Five Tool Texas Summer",       color:C.teal},
+  {id:"wwba",        label:"WWBA National Championship",   color:"#f59e0b"},
 ];
-
-// ── DERIVE DATA FROM games-data.json ──────────────────────────────────────────
-
-// Build GAMES array
-const GAMES = gamesData.games.map(g => ({
-  id: g.id,
-  date: g.date,
-  opp: g.opponent,
-  result: g.result,
-  score: g.score
+const TOURNAMENTS = TOURNAMENT_META.map(t => ({
+  ...t,
+  games: GAMES_DATA.games.reduce((idxs, g, i) => g.tournament === t.id ? [...idxs, i] : idxs, []),
 }));
 
-// Build runs arrays
-const GBG_RUNS = gamesData.games.map(g => g.gbgRuns);
-const OPP_RUNS = gamesData.games.map(g => g.oppRuns);
+// ── GAMES ─────────────────────────────────────────────────────────────────────
+const GAMES = GAMES_DATA.games.map(g => ({ id: g.id, date: g.date, opp: g.opponent, result: g.result, score: g.score }));
+const GBG_RUNS = GAMES_DATA.games.map(g => g.gbgRuns);
+const OPP_RUNS = GAMES_DATA.games.map(g => g.oppRuns);
 
-// Build TEAM_GAMES
-const TEAM_GAMES = gamesData.games.map(g => g.teamStats);
-
-// Build PLAYER_GAME_LOG by iterating games and collecting per-player stats
-const PLAYER_GAME_LOG = {};
-const allPlayers = new Set();
-
-// First pass: collect all player names
-gamesData.games.forEach(game => {
-  Object.keys(game.playerStats || {}).forEach(name => allPlayers.add(name));
-});
-
-// Second pass: build per-player arrays
-allPlayers.forEach(player => {
-  PLAYER_GAME_LOG[player] = gamesData.games.map(game => 
-    game.playerStats[player] || {h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}
-  );
-});
-
-// Build GRAYSON_GAMES from PLAYER_GAME_LOG
-const GRAYSON_GAMES = (PLAYER_GAME_LOG["G Watkins"] || []).map(stats => ({
-  ab: stats.ab,
-  h: stats.h,
-  d: stats.d,
-  t: stats.t,
-  hr: stats.hr,
-  rbi: stats.rbi,
-  bb: stats.bb,
-  hbp: stats.hbp,
-  sf: stats.sf,
-  pos: stats.ab === 0 && stats.bb === 0 && stats.hbp === 0 ? "DNP" : "C"
-}));
-
-// Build ROSTER by summing season stats per player
-const ROSTER = Array.from(allPlayers).map(name => {
-  const games = PLAYER_GAME_LOG[name] || [];
-  const stats = {ab:0, r:0, h:0, d:0, t:0, hr:0, rbi:0, bb:0, hbp:0, sf:0, so:0, sb:0};
-  
-  games.forEach(g => {
-    Object.keys(stats).forEach(k => { stats[k] += g[k] || 0; });
+// ── PLAYER GAME LOG ───────────────────────────────────────────────────────────
+// Sparse by design: PLAYER_GAME_LOG[name][i] is `undefined` when that player has
+// no logged box score for game i (DNP, or a box score gap in the source data),
+// rather than a fabricated 0-for-0. Aggregation below skips undefined entries
+// instead of counting them as a game played.
+const ALL_PLAYER_NAMES = [...new Set(GAMES_DATA.games.flatMap(g => Object.keys(g.playerStats)))];
+const PLAYER_GAME_LOG = Object.fromEntries(ALL_PLAYER_NAMES.map(name => {
+  const log = GAMES_DATA.games.map(g => {
+    const s = g.playerStats[name];
+    if (!s) return undefined;
+    return {h:s.h||0, ab:s.ab||0, r:s.r||0, d:s.d||0, t:s.t||0, hr:s.hr||0, rbi:s.rbi||0, bb:s.bb||0, hbp:s.hbp||0, sf:s.sf||0, so:s.so||0, sb:s.sb||0};
   });
-  
-  const tb = stats.h - stats.d - stats.t - stats.hr + 2*stats.d + 3*stats.t + 4*stats.hr;
-  const g = games.filter(game => (game.ab||0) + (game.bb||0) + (game.hbp||0) + (game.sf||0) > 0).length;
-  
-  const avg = stats.ab > 0 ? parseFloat((stats.h / stats.ab).toFixed(3)) : 0;
-  const obp = (stats.ab + stats.bb + stats.hbp + stats.sf) > 0 
-    ? parseFloat(((stats.h + stats.bb + stats.hbp) / (stats.ab + stats.bb + stats.hbp + stats.sf)).toFixed(3))
-    : 0;
-  const slg = stats.ab > 0 ? parseFloat((tb / stats.ab).toFixed(3)) : 0;
-  const ops = parseFloat((obp + slg).toFixed(3));
-  
-  return {
-    name,
-    num: 0,
-    g, ab: stats.ab, r: stats.r, h: stats.h, d: stats.d, t: stats.t, hr: stats.hr, tb,
-    rbi: stats.rbi, bb: stats.bb, hbp: stats.hbp, sf: stats.sf, so: stats.so, sb: stats.sb,
-    avg, obp, slg, ops
-  };
-}).sort((a,b) => b.h - a.h);
+  return [name, log];
+}));
 
-// Add TEAM row (cumulative totals)
-const teamTotal = TEAM_GAMES.reduce((sum, game) => ({
-  ab: sum.ab + game.ab,
-  r: sum.r + game.r,
-  h: sum.h + game.h,
-  d: sum.d + game.d,
-  t: sum.t + game.t,
-  hr: sum.hr + game.hr,
-  rbi: sum.rbi + game.rbi,
-  bb: sum.bb + game.bb,
-  hbp: sum.hbp + game.hbp,
-  sf: sum.sf + game.sf,
-  so: sum.so + game.so,
-}), {ab:0, r:0, h:0, d:0, t:0, hr:0, rbi:0, bb:0, hbp:0, sf:0, so:0});
+// ── STAT AGGREGATION ──────────────────────────────────────────────────────────
+// Shared by season totals (ROSTER), any game-filtered view (RosterTable), and
+// per-game team lines (TEAM_GAMES) — one implementation, so a filtered view and
+// the season view can never drift out of sync the way they used to.
+function aggregateStats(log, indices) {
+  const idxs = indices || (log ? log.map((_, i) => i) : []);
+  let h=0,ab=0,r=0,d=0,t=0,hr=0,rbi=0,bb=0,hbp=0,sf=0,so=0,sb=0,g=0;
+  idxs.forEach(i => {
+    const gm = log && log[i]; if (!gm) return;
+    if ((gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0) g++;
+    h+=gm.h||0; ab+=gm.ab||0; r+=gm.r||0; d+=gm.d||0; t+=gm.t||0; hr+=gm.hr||0;
+    rbi+=gm.rbi||0; bb+=gm.bb||0; hbp+=gm.hbp||0; sf+=gm.sf||0; so+=gm.so||0; sb+=gm.sb||0;
+  });
+  const singles = h - d - t - hr;
+  const tb = singles + 2*d + 3*t + 4*hr;
+  const pa = ab + bb + hbp + sf;
+  const avg = ab>0 ? h/ab : 0;
+  const obp = pa>0 ? (h+bb+hbp)/pa : 0;
+  const slg = ab>0 ? tb/ab : 0;
+  const ops = obp + slg;
+  return { g, ab, pa, r, h, d, t, hr, tb, rbi, bb, hbp, sf, so, sb, avg, obp, slg, ops };
+}
+function sumPlayerRows(rows) {
+  const keys = ["ab","pa","r","h","d","t","hr","tb","rbi","bb","hbp","sf","so","sb"];
+  return rows.reduce((acc, p) => { keys.forEach(k => { acc[k] = (acc[k]||0) + (p[k]||0); }); return acc; }, {});
+}
+// TEAM row = sum of the player rows being shown. games-data.json also carries a
+// separate per-game `teamStats` line, but it doesn't always reconcile exactly
+// with the individual player box scores in the source data (off by a few AB/H/R
+// in most games) — team totals here are computed from player stats so the TEAM
+// row always matches what's summed in the roster table above it.
+function deriveTeamRow(playerRows, gamesCount) {
+  const agg = sumPlayerRows(playerRows);
+  const avg = agg.ab>0 ? agg.h/agg.ab : 0;
+  const obp = agg.pa>0 ? (agg.h+agg.bb+agg.hbp)/agg.pa : 0;
+  const slg = agg.ab>0 ? agg.tb/agg.ab : 0;
+  const ops = obp + slg;
+  return { name:"TEAM", num:0, g: gamesCount, ...agg, avg, obp, slg, ops };
+}
 
-const teamTB = teamTotal.h - teamTotal.d - teamTotal.t - teamTotal.hr + 2*teamTotal.d + 3*teamTotal.t + 4*teamTotal.hr;
-const teamAvg = teamTotal.ab > 0 ? parseFloat((teamTotal.h / teamTotal.ab).toFixed(3)) : 0;
-const teamOBP = (teamTotal.ab + teamTotal.bb + teamTotal.hbp + teamTotal.sf) > 0 
-  ? parseFloat(((teamTotal.h + teamTotal.bb + teamTotal.hbp) / (teamTotal.ab + teamTotal.bb + teamTotal.hbp + teamTotal.sf)).toFixed(3))
-  : 0;
-const teamSLG = teamTotal.ab > 0 ? parseFloat((teamTB / teamTotal.ab).toFixed(3)) : 0;
-const teamOPS = parseFloat((teamOBP + teamSLG).toFixed(3));
+// ── ROSTER (season totals) ────────────────────────────────────────────────────
+const PLAYERS_ROSTER = ALL_PLAYER_NAMES.map(name => ({
+  name, num: JERSEY_NUMBERS[name] ?? 0, ...aggregateStats(PLAYER_GAME_LOG[name]),
+}));
+const ROSTER = [...PLAYERS_ROSTER, deriveTeamRow(PLAYERS_ROSTER, GAMES.length)];
 
-ROSTER.push({
-  name: "TEAM",
-  num: 0,
-  g: GAMES.length,
-  ab: teamTotal.ab,
-  r: teamTotal.r,
-  h: teamTotal.h,
-  d: teamTotal.d,
-  t: teamTotal.t,
-  hr: teamTotal.hr,
-  tb: teamTB,
-  rbi: teamTotal.rbi,
-  bb: teamTotal.bb,
-  hbp: teamTotal.hbp,
-  sf: teamTotal.sf,
-  so: teamTotal.so,
-  sb: 0,
-  avg: teamAvg,
-  obp: teamOBP,
-  slg: teamSLG,
-  ops: teamOPS
+// ── TEAM_GAMES (per-game team line, one row per game in GAMES) ────────────────
+const TEAM_GAMES = GAMES.map((_, i) => {
+  const rows = ALL_PLAYER_NAMES.map(name => aggregateStats(PLAYER_GAME_LOG[name], [i]));
+  return deriveTeamRow(rows, 1);
 });
 
-// Build RECENT_GAMES_IDX
-const RECENT_GAMES_IDX = GAMES.length >= 3 
-  ? [GAMES.length - 3, GAMES.length - 2, GAMES.length - 1]
-  : GAMES.length >= 2
-  ? [GAMES.length - 2, GAMES.length - 1]
-  : [0];
-
-// Build GAME_BATTING and GAME_AB (last 3 games)
-const GAME_BATTING = {};
-const GAME_AB = {};
-
-Array.from(allPlayers).forEach(name => {
-  const games = PLAYER_GAME_LOG[name] || [];
-  const last3 = games.slice(-3);
-  GAME_BATTING[name] = last3.map(g => g.h || 0);
-  GAME_AB[name] = last3.map(g => g.ab || 0);
+// ── GRAYSON (batting stats derived from his game log; position is hand-tagged) ─
+const GRAYSON_GAMES = GAMES.map((_, i) => {
+  const gm = (PLAYER_GAME_LOG["G Watkins"] || [])[i] || {h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0};
+  return { ...gm, pos: GRAYSON_POSITIONS[i] || "—" };
 });
 
-// Pitching data (kept from dashboard)
+// ── SEASON RECORD (used in header + footer) ───────────────────────────────────
+const SEASON_RECORD = (() => {
+  const wins = GAMES.filter(g => g.result === "W").length;
+  const losses = GAMES.filter(g => g.result === "L").length;
+  const ties = GAMES.filter(g => g.result === "T").length;
+  return `${wins}-${losses}${ties > 0 ? `-${ties}` : ""}`;
+})();
+
+// ── PITCHING ──────────────────────────────────────────────────────────────────
+// Not tracked in games-data.json yet, so this stays hand-maintained for now.
 const PITCHING = [
   {name:"J O'Connor",  num:12,g:6,ip:"18.2",h:16, r:16, er:11,bb:19, so:22,hbp:3,era:5.30,whip:1.88,k9:10.6, pitches:379,strikes:207},
   {name:"C Carter",    num:27,g:5,ip:"13.0",h:9, r:10, er:5,bb:12, so:16,hbp:2,era:3.46,whip:1.62,k9:11.1, pitches:253,strikes:133},
@@ -174,8 +142,6 @@ const PITCHING = [
   {name:"E West",      num:30,g:4,ip:"10.0",h:13, r:15, er:7,bb:11, so:8,hbp:2,era:6.30,whip:2.40,k9:7.2, pitches:161,strikes:93},
 ];
 
-// ── FUNCTIONS & COMPONENTS ────────────────────────────────────────────────────
-
 function ipdec(s) {
   const [w,f] = String(s).split(".");
   return parseInt(w) + (f ? parseInt(f)/3 : 0);
@@ -184,16 +150,11 @@ function fmt(n, dec=3) {
   if (n === null || n === undefined || isNaN(n)) return "—";
   return n.toFixed(dec);
 }
-function recentAvg(name) {
-  const h=(GAME_BATTING[name]||[]).reduce((a,b)=>a+b,0);
-  const ab=(GAME_AB[name]||[]).reduce((a,b)=>a+b,0);
-  return ab>0?h/ab:0;
-}
-function hotScore(name) {
-  const hits=GAME_BATTING[name]||[0,0,0];
-  const abs=GAME_AB[name]||[0,0,0];
-  return hits.reduce((s,h,i)=>s+(abs[i]>0?(h/abs[i])*[1,2,3][i]:0),0);
-}
+
+// Team season batting average — used as the reference line on AVG charts.
+// Pulled straight from the derived TEAM row rather than re-summing ROSTER
+// (summing ROSTER including the TEAM row itself would double-count).
+const TEAM_SEASON_AVG = ROSTER.find(p => p.name === "TEAM")?.avg ?? 0;
 
 // Compute H/AB over a subset of game indices for a single player
 function playerSubsetStats(name, selIdx) {
@@ -206,7 +167,8 @@ function playerSubsetStats(name, selIdx) {
 // Last 3 games the named player was actually in the lineup (had a PA: AB+BB+HBP+SF > 0)
 function last3InLineup(name) {
   const log = PLAYER_GAME_LOG[name] || [];
-  const inLineup = log.filter(gm => (gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0);
+  // gm can be undefined (no logged box score for that game) — must guard before reading fields
+  const inLineup = log.filter(gm => gm && (gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0);
   const last3 = inLineup.slice(-3);
   const h = last3.reduce((a, gm) => a + (gm.h||0), 0);
   const ab = last3.reduce((a, gm) => a + (gm.ab||0), 0);
@@ -725,12 +687,14 @@ function PlayerPopup({ player, onClose }) {
   const log = PLAYER_GAME_LOG[player.name] || [];
   if (!p) return null;
 
-  // Rolling batting AVG
+  // Rolling batting AVG — skip games with no logged box score (gm undefined)
+  // rather than crashing or silently treating them as 0-for-0.
   let cumH=0, cumAB=0;
   const rollingBat = log.map((gm,i)=>{
+    if (!gm) return null;
     cumH+=gm.h; cumAB+=gm.ab;
     return { game:GAMES[i].opp.split(" ")[0], avg:cumAB>0?parseFloat((cumH/cumAB).toFixed(3)):0, h:gm.h, ab:gm.ab, result:GAMES[i].result };
-  });
+  }).filter(Boolean);
 
   // Rolling pitching ERA (if they pitched)
   const pitchGames = pitch ? (() => {
@@ -819,6 +783,18 @@ function PlayerPopup({ player, onClose }) {
             {log.map((gm,i)=>{
               const res=GAMES[i].result;
               const rc=res==="W"?C.green:res==="L"?C.red:C.accent;
+              // gm is undefined when this game has no logged box score for this player
+              // (DNP or a data gap) — show a distinct "no data" tile instead of crashing
+              // or silently rendering it as a 0-for-0 game.
+              if (!gm) {
+                return (
+                  <div key={i} title="No box score logged for this game" style={{background:`${C.muted}10`,border:`1px dashed ${C.muted}55`,borderRadius:6,padding:"4px 6px",textAlign:"center",minWidth:40}}>
+                    <div style={{fontSize:7,color:C.subtext,marginBottom:1}}>{GAMES[i].opp.split(" ")[0]}</div>
+                    <div style={{fontSize:8,fontWeight:700,color:rc}}>{res}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:C.muted}}>?</div>
+                  </div>
+                );
+              }
               const hc=gm.ab===0?C.muted:gm.h>0?C.accent:C.subtext;
               return (
                 <div key={i} style={{background:`${rc}12`,border:`1px solid ${rc}40`,borderRadius:6,padding:"4px 6px",textAlign:"center",minWidth:40}}>
@@ -895,7 +871,7 @@ function PlayerPopup({ player, onClose }) {
 
 // ── PLAYER ROSTER TILES ───────────────────────────────────────────────────────
 function PlayerRosterTiles({ onSelect }) {
-  const order = [...ROSTER].sort((a,b) => a.num - b.num);
+  const order = [...ROSTER].filter(p => p.name !== "TEAM").sort((a,b) => a.num - b.num);
   return (
     <div style={{maxWidth:1100,margin:"20px auto 0"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
@@ -960,9 +936,9 @@ function PlayerRosterTiles({ onSelect }) {
 function HotColdSection({ selectedIdx }) {
   const isAll = selectedIdx.length === GAMES.length;
 
-  // Compute each player's H/AB:
-  // - Unfiltered (default): use last-3-games data from GAME_BATTING/GAME_AB
-  // - Filtered: sum PLAYER_GAME_LOG over selected games
+  // Compute each player's H/AB, both derived from PLAYER_GAME_LOG:
+  // - Unfiltered (default): last 3 games they actually had a plate appearance in
+  // - Filtered: summed over the selected games
   const withScore = ROSTER.map(p => {
     let h, ab, avg, score;
     if (isAll) {
@@ -1028,7 +1004,7 @@ function HotColdSection({ selectedIdx }) {
 
 // ── TEAM OPS CHART ────────────────────────────────────────────────────────────
 function TeamOPSChart({ isFiltered }) {
-  const sorted=[...ROSTER].sort((a,b)=>b.ops-a.ops);
+  const sorted=[...ROSTER].filter(p => p.name !== "TEAM").sort((a,b)=>b.ops-a.ops);
   const data=sorted.map(p=>({name:p.name.split(" ")[1]||p.name,ops:parseFloat(p.ops.toFixed(3)),isGrayson:p.name==="G Watkins"}));
   return (
     <Panel>
@@ -1170,25 +1146,15 @@ function RosterTable({ selectedIdx }) {
     else { setSortKey(null); setSortDir(1); }
   };
 
-  // Compute filtered roster from PLAYER_GAME_LOG when not showing all games
-  const filteredRoster = isAll ? ROSTER.map(p => ({...p, pa: p.ab + p.bb + p.hbp + p.sf})) : ROSTER.map(p => {
-    const log = PLAYER_GAME_LOG[p.name] || [];
-    let h=0,ab=0,r=0,d=0,t=0,hr=0,rbi=0,bb=0,hbp=0,sf=0,so=0,sb=0,gp=0;
-    selectedIdx.forEach(i => {
-      const gm = log[i]; if (!gm) return;
-      if ((gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0) gp++;
-      h+=gm.h||0; ab+=gm.ab||0; r+=gm.r||0; d+=gm.d||0; t+=gm.t||0; hr+=gm.hr||0;
-      rbi+=gm.rbi||0; bb+=gm.bb||0; hbp+=gm.hbp||0; sf+=gm.sf||0; so+=gm.so||0; sb+=gm.sb||0;
-    });
-    const singles = h - d - t - hr;
-    const tb = singles + 2*d + 3*t + 4*hr;
-    const avg = ab>0 ? h/ab : 0;
-    const pa = ab + bb + hbp + sf;
-    const obp = pa>0 ? (h+bb+hbp)/pa : 0;
-    const slg = ab>0 ? tb/ab : 0;
-    const ops = obp + slg;
-    return {name:p.name, num:p.num, g:gp, ab, pa, r, h, d, t, hr, tb, rbi, bb, hbp, sf, so, sb, avg, obp, slg, ops};
-  });
+  // Recompute every row (players + TEAM) over the selected games using the same
+  // aggregateStats/deriveTeamRow helpers the season ROSTER uses, so a filtered
+  // view and the season view can never drift apart the way they used to.
+  const filteredRoster = (() => {
+    const players = ALL_PLAYER_NAMES.map(name => ({
+      name, num: JERSEY_NUMBERS[name] ?? 0, ...aggregateStats(PLAYER_GAME_LOG[name], selectedIdx),
+    }));
+    return [...players, deriveTeamRow(players, selectedIdx.length)];
+  })();
 
   // Separate TEAM row from regular players for sorting
   const teamRow = filteredRoster.find(p => p.name === "TEAM");
@@ -1538,7 +1504,7 @@ export default function App() {
       <PlayerRosterTiles onSelect={setSelectedPlayer} />
 
       <div style={{maxWidth:1100,margin:"16px auto 0",fontSize:10,color:C.muted,textAlign:"center"}}>
-        Updated Jun 26 2026 · Stats verified by 3 independent agents · 11-8-1 through 20 games
+        Data through {GAMES[GAMES.length-1].date} · {SEASON_RECORD} ({GAMES.length} games) · Source: games-data.json
       </div>
     </div>
   );

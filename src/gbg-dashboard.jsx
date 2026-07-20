@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis } from "recharts";
+import GAMES_DATA from "./games-data-final.json";
 
 // ── PALETTE ───────────────────────────────────────────────────────────────────
 const C = {
@@ -9,122 +10,126 @@ const C = {
   text:"#e2e8f0", subtext:"#94a3b8", purple:"#a855f7",
 };
 
+// ── DATA SOURCE ────────────────────────────────────────────────────────────────
+// Everything below is derived from games-data.json (per-game team + player box
+// scores). That JSON is the single source of truth for game results, stats, and
+// tournament grouping — no game/stat data should be hand-duplicated here.
+//
+// Two things are NOT in games-data.json and stay as small manual lookups:
+// jersey numbers, and Grayson's per-game defensive position. Pitching stats also
+// aren't in the JSON yet, so PITCHING below is still hand-maintained.
+
+const JERSEY_NUMBERS = {
+  "J Bradley":14, "R Enochs":3, "E West":30, "C Davies":1, "J Farmer":17, "P Martin":5,
+  "J O'Connor":12, "G Watkins":21, "J Seda":8, "C Sherpa":22, "J Holder":4, "A Gomes":28, "C Carter":27,
+};
+
+// One entry per game in GAMES_DATA.games, in the same order.
+const GRAYSON_POSITIONS = ["C","1B","C","1B","C","C","C","C","DNP","C","1B","C","DH","DH","C","EH","DNP","C","EH","C","DH","C","C","C","DNP"];
+
 // ── TOURNAMENTS ──────────────────────────────────────────────────────────────
-const TOURNAMENTS = [
-  {id:"gbg-rr",      label:"GBG Round Robin",              games:[0,1,2],          color:C.green},
-  {id:"mhs",         label:"Mile High Shootout",           games:[3,4,5,6],        color:C.blue},
-  {id:"gb",          label:"Gold Rush Bracket",            games:[7,8,9,10],       color:C.purple},
-  {id:"15u-natl",    label:"15U National Championship",    games:[11,12,13,14,15], color:C.teal},
-  {id:"ftc",         label:"Five Tool Colorado Legends",   games:[16,17,18,19],    color:C.accent},
-  {id:"fttx",        label:"Five Tool Texas Summer",       games:[20,21,22,23],    color:C.teal},
-  {id:"wwba",        label:"WWBA National Championship",   games:[24],             color:"#f59e0b"},
+const TOURNAMENT_META = [
+  {id:"gbg-rr",      label:"GBG Round Robin",              color:C.green},
+  {id:"mhs",         label:"Mile High Shootout",           color:C.blue},
+  {id:"gb",          label:"Gold Rush Bracket",            color:C.purple},
+  {id:"15u-natl",    label:"15U National Championship",    color:C.teal},
+  {id:"ftc",         label:"Five Tool Colorado Legends",   color:C.accent},
+  {id:"fttx",        label:"Five Tool Texas Summer",       color:C.teal},
+  {id:"wwba",        label:"WWBA National Championship",   color:"#f59e0b"},
 ];
+const TOURNAMENTS = TOURNAMENT_META.map(t => ({
+  ...t,
+  games: GAMES_DATA.games.reduce((idxs, g, i) => g.tournament === t.id ? [...idxs, i] : idxs, []),
+}));
 
-// ── GAME DATA ─────────────────────────────────────────────────────────────────
-const GAMES = [
-  { id:1,  date:"May 30", opp:"GBG Navy",       result:"W", score:"6-2"  },
-  { id:2,  date:"May 30", opp:"GBG 2028",        result:"W", score:"9-7"  },
-  { id:3,  date:"May 31", opp:"GBG 2027",        result:"W", score:"5-3"  },
-  { id:4,  date:"Jun 4",  opp:"Hitstreak",       result:"W", score:"10-0" },
-  { id:5,  date:"Jun 5",  opp:"Highlanders",     result:"W", score:"4-3"  },
-  { id:6,  date:"Jun 6",  opp:"CIL Gold",        result:"W", score:"6-4"  },
-  { id:7,  date:"Jun 7",  opp:"ONE6",            result:"L", score:"3-4"  },
-  { id:8,  date:"Jun 11", opp:"COBSBL",          result:"T", score:"7-7"  },
-  { id:9,  date:"Jun 11", opp:"RoughRiders",     result:"L", score:"1-6"  },
-  { id:10, date:"Jun 13", opp:"Colo Select",     result:"W", score:"12-4" },
-  { id:11, date:"Jun 13", opp:"Ark Valley",      result:"L", score:"3-6"  },
-  { id:12, date:"Jun 18", opp:"Titans 15U",      result:"W", score:"9-4"  },
-  { id:13, date:"Jun 19", opp:"Exposure Natl",    result:"L", score:"1-2"  },
-  { id:14, date:"Jun 20", opp:"Ascent Athlete",   result:"L", score:"0-9"  },
-  { id:15, date:"Jun 21", opp:"Team Elite Plat",   result:"W", score:"7-0"  },
-  { id:16, date:"Jun 22", opp:"STL Naturals",      result:"L", score:"3-10" },
-  { id:17, date:"Jun 25", opp:"ONE6 Lambert",      result:"L", score:"1-9"  },
-  { id:18, date:"Jun 25", opp:"Box State Recr",    result:"W", score:"7-4"  },
-  { id:19, date:"Jun 26", opp:"7one9 S&K 17u",   result:"L", score:"0-8"  },
-  { id:20, date:"Jun 26", opp:"Generals Jr",     result:"W", score:"8-0"  },
-  { id:21, date:"Jul 10", opp:"Dallas Nationals", result:"W", score:"9-6"  },
-  { id:22, date:"Jul 10", opp:"Lojo 15u Green",  result:"W", score:"15-3" },
-  { id:23, date:"Jul 11", opp:"Texas Sparta",    result:"W", score:"9-1"  },
-  { id:24, date:"Jul 12", opp:"Dallas Nationals", result:"L", score:"6-8"  },
-  { id:25, date:"Jul 17", opp:"REB Sports A",     result:"W", score:"13-1" },
-];
+// ── GAMES ─────────────────────────────────────────────────────────────────────
+const GAMES = GAMES_DATA.games.map(g => ({ id: g.id, date: g.date, opp: g.opponent, result: g.result, score: g.score }));
+const GBG_RUNS = GAMES_DATA.games.map(g => g.gbgRuns);
+const OPP_RUNS = GAMES_DATA.games.map(g => g.oppRuns);
 
-const GBG_RUNS  = [6,9,5,10,4,6,3,7,1,12,3,9,1,0,7,3,1,7,0,8,9,15,9,6,13];
-const OPP_RUNS  = [2,7,3,0,3,4,4,7,6,4,6,4,2,9,0,10,9,4,8,0,6,3,1,8,1];
+// ── PLAYER GAME LOG ───────────────────────────────────────────────────────────
+// Sparse by design: PLAYER_GAME_LOG[name][i] is `undefined` when that player has
+// no logged box score for game i (DNP, or a box score gap in the source data),
+// rather than a fabricated 0-for-0. Aggregation below skips undefined entries
+// instead of counting them as a game played.
+const ALL_PLAYER_NAMES = [...new Set(GAMES_DATA.games.flatMap(g => Object.keys(g.playerStats)))];
+const PLAYER_GAME_LOG = Object.fromEntries(ALL_PLAYER_NAMES.map(name => {
+  const log = GAMES_DATA.games.map(g => {
+    const s = g.playerStats[name];
+    if (!s) return undefined;
+    return {h:s.h||0, ab:s.ab||0, r:s.r||0, d:s.d||0, t:s.t||0, hr:s.hr||0, rbi:s.rbi||0, bb:s.bb||0, hbp:s.hbp||0, sf:s.sf||0, so:s.so||0, sb:s.sb||0};
+  });
+  return [name, log];
+}));
 
-const TEAM_GAMES = [
-  {ab:28,r: 6, h: 8,d:3,t:0,hr:0,rbi: 5, bb: 4, hbp:0, so: 9 },
-  {ab:20,r: 9, h: 3,d:0,t:0,hr:0,rbi: 5, bb: 7, hbp:2, so: 5 },
-  {ab:17,r: 5, h: 4,d:0,t:0,hr:0,rbi: 5, bb:10, hbp:2, so: 4 },
-  {ab:17,r:10, h: 8,d:5,t:0,hr:0,rbi: 8, bb: 5, hbp:3, so: 2 },
-  {ab:24,r: 4, h: 6,d:1,t:1,hr:0,rbi: 3, bb: 5, hbp:1, so: 2 },
-  {ab:24,r: 6, h: 8,d:3,t:1,hr:0,rbi: 5, bb: 6, hbp:0, so: 7 },
-  {ab:25,r: 3, h: 5,d:2,t:0,hr:0,rbi: 2, bb: 4, hbp:3, so: 6 },
-  {ab:26,r: 7, h: 6,d:2,t:1,hr:0,rbi: 5, bb: 5, hbp:0, so: 4 },
-  {ab:18,r: 1, h: 3,d:1,t:0,hr:1,rbi: 1, bb: 1, hbp:0, so: 9 },
-  {ab:25,r:12, h: 6,d:2,t:0,hr:1,rbi: 7, bb:10, hbp:0, so: 8 },
-  {ab:27,r: 3, h: 8,d:1,t:0,hr:0,rbi: 3, bb: 2, hbp:0, so: 9 },
-  {ab:21,r: 9, h: 8,d:1,t:0,hr:0,rbi: 5, bb: 6, hbp:0, so: 1 },
-  {ab:24,r: 1, h: 5,d:0,t:1,hr:0,rbi: 1, bb: 2, hbp:3, so: 9 },
-  {ab:24,r: 0, h: 7,d:0,t:0,hr:0,rbi: 0, bb: 0, hbp:0, so: 3 },
-  {ab:23,r: 7, h: 6,d:1,t:1,hr:0,rbi: 3, bb: 4, hbp:0, so: 5 },
-  {ab:21,r: 3, h: 2,d:0,t:0,hr:0,rbi: 3, bb: 3, hbp:1, so: 5 },
-  {ab:21,r: 1, h: 4,d:0,t:1,hr:0,rbi: 1, bb: 1, hbp:0, so: 8 },
-  {ab:32,r: 7, h:11,d:2,t:0,hr:0,rbi: 7, bb: 2, hbp:0, so: 6 },
-  {ab:15,r: 0, h: 6,d:0,t:0,hr:0,rbi: 0, bb: 2, hbp:0, so: 3 },
-  {ab:28,r: 8, h:11,d:2,t:2,hr:0,rbi: 6, bb: 2, hbp:0, so: 5 },
-  {ab:33,r: 9, h:10,d:3,t:1,hr:0,rbi: 7, bb: 2, hbp:1, so: 8 },
-  {ab:20,r:15, h: 8,d:3,t:0,hr:1,rbi:13, bb:10, hbp:2, so: 3 },
-  {ab:22,r: 9, h: 7,d:3,t:0,hr:1,rbi: 7, bb: 6, hbp:2, so: 4 },
-  {ab:23,r: 6, h:11,d:2,t:0,hr:0,rbi: 5, bb: 1, hbp:2, so: 4 },
-  {ab:18,r:13, h: 8,d:1,t:0,hr:2,rbi:12, bb: 4, hbp:1, so: 2 },
-];
+// ── STAT AGGREGATION ──────────────────────────────────────────────────────────
+// Shared by season totals (ROSTER), any game-filtered view (RosterTable), and
+// per-game team lines (TEAM_GAMES) — one implementation, so a filtered view and
+// the season view can never drift out of sync the way they used to.
+function aggregateStats(log, indices) {
+  const idxs = indices || (log ? log.map((_, i) => i) : []);
+  let h=0,ab=0,r=0,d=0,t=0,hr=0,rbi=0,bb=0,hbp=0,sf=0,so=0,sb=0,g=0;
+  idxs.forEach(i => {
+    const gm = log && log[i]; if (!gm) return;
+    if ((gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0) g++;
+    h+=gm.h||0; ab+=gm.ab||0; r+=gm.r||0; d+=gm.d||0; t+=gm.t||0; hr+=gm.hr||0;
+    rbi+=gm.rbi||0; bb+=gm.bb||0; hbp+=gm.hbp||0; sf+=gm.sf||0; so+=gm.so||0; sb+=gm.sb||0;
+  });
+  const singles = h - d - t - hr;
+  const tb = singles + 2*d + 3*t + 4*hr;
+  const pa = ab + bb + hbp + sf;
+  const avg = ab>0 ? h/ab : 0;
+  const obp = pa>0 ? (h+bb+hbp)/pa : 0;
+  const slg = ab>0 ? tb/ab : 0;
+  const ops = obp + slg;
+  return { g, ab, pa, r, h, d, t, hr, tb, rbi, bb, hbp, sf, so, sb, avg, obp, slg, ops };
+}
+function sumPlayerRows(rows) {
+  const keys = ["ab","pa","r","h","d","t","hr","tb","rbi","bb","hbp","sf","so","sb"];
+  return rows.reduce((acc, p) => { keys.forEach(k => { acc[k] = (acc[k]||0) + (p[k]||0); }); return acc; }, {});
+}
+// TEAM row = sum of the player rows being shown. games-data.json also carries a
+// separate per-game `teamStats` line, but it doesn't always reconcile exactly
+// with the individual player box scores in the source data (off by a few AB/H/R
+// in most games) — team totals here are computed from player stats so the TEAM
+// row always matches what's summed in the roster table above it.
+function deriveTeamRow(playerRows, gamesCount) {
+  const agg = sumPlayerRows(playerRows);
+  const avg = agg.ab>0 ? agg.h/agg.ab : 0;
+  const obp = agg.pa>0 ? (agg.h+agg.bb+agg.hbp)/agg.pa : 0;
+  const slg = agg.ab>0 ? agg.tb/agg.ab : 0;
+  const ops = obp + slg;
+  return { name:"TEAM", num:0, g: gamesCount, ...agg, avg, obp, slg, ops };
+}
 
-const GRAYSON_GAMES = [
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,pos:"C"},
-  {ab:3,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"1B"},
-  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:2,h:2,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"1B"},
-  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,pos:"C"},
-  {ab:0,h:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,pos:"C"},
-  {ab:2,h:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:3,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
-  {ab:3,h:3,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"1B"},
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
-  {ab:2,h:2,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"EH"},
-  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
-  {ab:3,h:3,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,pos:"EH"},
-  {ab:2,h:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,pos:"C"},
-  {ab:2,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DH"},
-  {ab:1,h:1,d:1,t:0,hr:0,rbi:2,bb:2,hbp:0,sf:0,pos:"C"},
-  {ab:1,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"C"},
-  {ab:1,h:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,pos:"C"},
-  {ab:0,h:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,pos:"DNP"},
-];
+// ── ROSTER (season totals) ────────────────────────────────────────────────────
+const PLAYERS_ROSTER = ALL_PLAYER_NAMES.map(name => ({
+  name, num: JERSEY_NUMBERS[name] ?? 0, ...aggregateStats(PLAYER_GAME_LOG[name]),
+}));
+const ROSTER = [...PLAYERS_ROSTER, deriveTeamRow(PLAYERS_ROSTER, GAMES.length)];
 
-const ROSTER = [
-  {name:"J Bradley",   num:14, g:25,ab:70,r:23, h:25,d:7,t:3,hr:2,tb:47,rbi:12, bb:11, hbp:1,sf:1,so: 9, sb:13, avg:0.357,obp:0.443,slg:0.671,ops:1.114},
-  {name:"R Enochs",    num: 3, g:25,ab:63,r:16, h:29,d:3,t:0,hr:1,tb:35,rbi:21, bb: 9, hbp:2,sf:0,so:11, sb: 9, avg:0.460,obp:0.538,slg:0.556,ops:1.094},
-  {name:"E West",      num:30, g:21,ab:49,r:12, h:14,d:5,t:0,hr:0,tb:19,rbi:10, bb: 9, hbp:1,sf:0,so:12, sb: 0, avg:0.286,obp:0.400,slg:0.388,ops:0.788},
-  {name:"C Davies",    num: 1, g:23,ab:48,r:11, h:12,d:2,t:0,hr:1,tb:18,rbi:15, bb: 6, hbp:2,sf:1,so:17, sb: 0, avg:0.250,obp:0.324,slg:0.375,ops:0.699},
-  {name:"J Farmer",    num:17, g:19,ab:42,r:13, h:13,d:2,t:2,hr:0,tb:19,rbi: 8, bb: 7, hbp:0,sf:0,so: 6, sb: 4, avg:0.310,obp:0.408,slg:0.452,ops:0.860},
-  {name:"P Martin",    num: 5, g:22,ab:46,r: 8, h:11,d:3,t:1,hr:0,tb:16,rbi: 7, bb: 5, hbp:1,sf:0,so:12, sb: 4, avg:0.239,obp:0.318,slg:0.348,ops:0.666},
-  {name:"J O'Connor",  num:12, g:21,ab:43,r:16, h:12,d:5,t:1,hr:0,tb:19,rbi:13, bb: 6, hbp:8,sf:0,so: 5, sb: 2, avg:0.279,obp:0.447,slg:0.442,ops:0.889},
-  {name:"G Watkins",   num:21, g:22,ab:39,r: 7, h:14,d:4,t:0,hr:0,tb:18,rbi: 8, bb: 6, hbp:1,sf:1,so: 5, sb: 0, avg:0.359,obp:0.447,slg:0.462,ops:0.909},
-  {name:"J Seda",      num: 8, g:22,ab:42,r:12, h:11,d:2,t:2,hr:1,tb:21,rbi: 6, bb:20, hbp:1,sf:0,so:19, sb: 8, avg:0.262,obp:0.517,slg:0.500,ops:1.017},
-  {name:"C Sherpa",    num:22, g:22,ab:37,r: 6, h: 8,d:1,t:0,hr:0,tb: 9,rbi: 3, bb: 7, hbp:1,sf:0,so: 7, sb: 2, avg:0.216,obp:0.348,slg:0.243,ops:0.591},
-  {name:"J Holder",    num: 4, g:23,ab:37,r:17, h:12,d:4,t:0,hr:0,tb:16,rbi: 4, bb: 8, hbp:0,sf:0,so: 6, sb: 2, avg:0.324,obp:0.429,slg:0.432,ops:0.861},
-  {name:"A Gomes",     num:28, g:17,ab:30,r: 8, h: 4,d:0,t:0,hr:0,tb: 4,rbi: 6, bb: 5, hbp:4,sf:1,so:14, sb: 1, avg:0.133,obp:0.348,slg:0.133,ops:0.481},
-  {name:"C Carter",    num:27, g:14,ab:27,r: 6, h: 6,d:2,t:0,hr:1,tb:11,rbi: 6, bb: 5, hbp:0,sf:0,so: 7, sb: 1, avg:0.222,obp:0.333,slg:0.407,ops:0.740},
-  {name:"TEAM",        num: 0, g:25,ab:561,r:194, h:169,d:47,t:3,hr:5,tb:241,rbi:170, bb:113, hbp:23,sf:7,so:148, sb:60, avg:0.301,obp:0.423,slg:0.429,ops:0.852},
-];
+// ── TEAM_GAMES (per-game team line, one row per game in GAMES) ────────────────
+const TEAM_GAMES = GAMES.map((_, i) => {
+  const rows = ALL_PLAYER_NAMES.map(name => aggregateStats(PLAYER_GAME_LOG[name], [i]));
+  return deriveTeamRow(rows, 1);
+});
 
+// ── GRAYSON (batting stats derived from his game log; position is hand-tagged) ─
+const GRAYSON_GAMES = GAMES.map((_, i) => {
+  const gm = (PLAYER_GAME_LOG["G Watkins"] || [])[i] || {h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0};
+  return { ...gm, pos: GRAYSON_POSITIONS[i] || "—" };
+});
+
+// ── SEASON RECORD (used in header + footer) ───────────────────────────────────
+const SEASON_RECORD = (() => {
+  const wins = GAMES.filter(g => g.result === "W").length;
+  const losses = GAMES.filter(g => g.result === "L").length;
+  const ties = GAMES.filter(g => g.result === "T").length;
+  return `${wins}-${losses}${ties > 0 ? `-${ties}` : ""}`;
+})();
+
+// ── PITCHING ──────────────────────────────────────────────────────────────────
+// Not tracked in games-data.json yet, so this stays hand-maintained for now.
 const PITCHING = [
   {name:"J O'Connor",  num:12,g:6,ip:"18.2",h:16, r:16, er:11,bb:19, so:22,hbp:3,era:5.30,whip:1.88,k9:10.6, pitches:379,strikes:207},
   {name:"C Carter",    num:27,g:5,ip:"13.0",h:9, r:10, er:5,bb:12, so:16,hbp:2,era:3.46,whip:1.62,k9:11.1, pitches:253,strikes:133},
@@ -137,63 +142,6 @@ const PITCHING = [
   {name:"E West",      num:30,g:4,ip:"10.0",h:13, r:15, er:7,bb:11, so:8,hbp:2,era:6.30,whip:2.40,k9:7.2, pitches:161,strikes:93},
 ];
 
-const RECENT_GAMES_IDX = [22,23,24];
-const GAME_BATTING = {
-  "R Enochs": [0, 1, 1],
-  "J Bradley": [1, 0, 2],
-  "G Watkins": [0, 1, 1],
-  "E West": [0, 0, 0],
-  "J Farmer": [0, 3, 0],
-  "J Holder": [0, 0, 1],
-  "J O'Connor": [0, 1, 0],
-  "P Martin": [0, 3, 2],
-  "C Sherpa": [1, 1, 0],
-  "J Seda": [1, 0, 0],
-  "C Davies": [3, 1, 0],
-  "C Carter": [0, 0, 1],
-  "A Gomes": [1, 0, 1],
-};
-const GAME_AB = {
-  "R Enochs": [2, 2, 3],
-  "J Bradley": [3, 3, 3],
-  "G Watkins": [1, 1, 0],
-  "E West": [0, 2, 2],
-  "J Farmer": [0, 4, 0],
-  "J Holder": [2, 0, 1],
-  "J O'Connor": [3, 1, 0],
-  "P Martin": [1, 4, 2],
-  "C Sherpa": [1, 2, 2],
-  "J Seda": [1, 1, 1],
-  "C Davies": [3, 1, 0],
-  "C Carter": [1, 2, 2],
-  "A Gomes": [2, 1, 2],
-};
-
-
-// Team season batting average — used as the reference line on AVG charts
-const TEAM_SEASON_AVG = (() => {
-  let h = 0, ab = 0;
-  ROSTER.forEach(p => { h += p.h; ab += p.ab; });
-  return ab > 0 ? h / ab : 0;
-})();
-
-// Per-game H and AB for every player (all 24 games) for rolling AVG popup
-const PLAYER_GAME_LOG = {
-  "R Enochs":    [{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:2,ab:2,r:2,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0},{h:3,ab:4,r:0,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:1,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:2,d:0,t:0,hr:0,rbi:1,bb:2,hbp:0,sf:0,so:1,sb:2},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:0,t:0,hr:0,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:2,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:2,d:1,t:0,hr:0,rbi:3,bb:1,hbp:0,sf:0,so:0,sb:4},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:3,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "J Bradley":   [{h:3,ab:4,r:2,d:2,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:2},{h:1,ab:1,r:3,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:2},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:1,sf:1,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:2,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:1,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:4,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:2},{h:1,ab:3,r:0,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:2},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:2,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:2,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:1,t:0,hr:1,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "E West":      [{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:4,r:1,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:4,r:1,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "J Farmer":    [{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:3,bb:2,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:2,d:0,t:1,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:1,bb:2,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:0,t:1,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "J Holder":    [{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:4,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:2,r:2,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "J O'Connor":  [{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:3,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:1,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:2,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:3,r:1,d:1,t:0,hr:0,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:1,sf:0,so:0,sb:0}],
-  "P Martin":    [{h:1,ab:4,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:1},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:1},{h:1,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:4,r:1,d:1,t:1,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:2,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "C Sherpa":    [{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0}],
-  "J Seda":      [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:1},{h:1,ab:2,r:1,d:0,t:1,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:3,hbp:0,sf:0,so:0,sb:1},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:2,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:2,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:1,sb:1},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:1},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:1,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:2,d:0,t:0,hr:1,rbi:3,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:2,sb:0},{h:0,ab:1,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0}],
-  "C Davies":    [{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:3,bb:0,hbp:1,sf:1,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:1,rbi:3,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:3,sb:0},{h:1,ab:1,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:2,ab:3,r:1,d:0,t:0,hr:0,rbi:2,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:3,ab:3,r:2,d:1,t:0,hr:0,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:2,hbp:0,sf:0,so:0,sb:0}],
-  "C Carter":    [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:3,r:1,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:1,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:2,d:0,t:0,hr:1,rbi:4,bb:0,hbp:0,sf:0,so:0,sb:0}],
-  "A Gomes":     [{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:2,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:1,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:2,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:1},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:1,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0}],
-  "G Watkins":   [{h:0,ab:2,r:1,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:1,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:1,so:0,sb:0},{h:1,ab:2,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:3,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:3,r:0,d:1,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:2,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:3,ab:3,r:0,d:0,t:0,hr:0,rbi:1,bb:0,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:1,hbp:0,sf:0,so:0,sb:0},{h:1,ab:2,r:0,d:0,t:0,hr:0,rbi:1,bb:1,hbp:0,sf:0,so:0,sb:0},{h:0,ab:2,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:1,sb:0},{h:1,ab:1,r:1,d:1,t:0,hr:0,rbi:2,bb:2,hbp:0,sf:0,so:0,sb:0},{h:0,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0},{h:1,ab:1,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:1,sf:0,so:0,sb:0},{h:0,ab:0,r:0,d:0,t:0,hr:0,rbi:0,bb:0,hbp:0,sf:0,so:0,sb:0}],
-};
-
 function ipdec(s) {
   const [w,f] = String(s).split(".");
   return parseInt(w) + (f ? parseInt(f)/3 : 0);
@@ -202,16 +150,11 @@ function fmt(n, dec=3) {
   if (n === null || n === undefined || isNaN(n)) return "—";
   return n.toFixed(dec);
 }
-function recentAvg(name) {
-  const h=(GAME_BATTING[name]||[]).reduce((a,b)=>a+b,0);
-  const ab=(GAME_AB[name]||[]).reduce((a,b)=>a+b,0);
-  return ab>0?h/ab:0;
-}
-function hotScore(name) {
-  const hits=GAME_BATTING[name]||[0,0,0];
-  const abs=GAME_AB[name]||[0,0,0];
-  return hits.reduce((s,h,i)=>s+(abs[i]>0?(h/abs[i])*[1,2,3][i]:0),0);
-}
+
+// Team season batting average — used as the reference line on AVG charts.
+// Pulled straight from the derived TEAM row rather than re-summing ROSTER
+// (summing ROSTER including the TEAM row itself would double-count).
+const TEAM_SEASON_AVG = ROSTER.find(p => p.name === "TEAM")?.avg ?? 0;
 
 // Compute H/AB over a subset of game indices for a single player
 function playerSubsetStats(name, selIdx) {
@@ -224,7 +167,8 @@ function playerSubsetStats(name, selIdx) {
 // Last 3 games the named player was actually in the lineup (had a PA: AB+BB+HBP+SF > 0)
 function last3InLineup(name) {
   const log = PLAYER_GAME_LOG[name] || [];
-  const inLineup = log.filter(gm => (gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0);
+  // gm can be undefined (no logged box score for that game) — must guard before reading fields
+  const inLineup = log.filter(gm => gm && (gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0);
   const last3 = inLineup.slice(-3);
   const h = last3.reduce((a, gm) => a + (gm.h||0), 0);
   const ab = last3.reduce((a, gm) => a + (gm.ab||0), 0);
@@ -743,12 +687,14 @@ function PlayerPopup({ player, onClose }) {
   const log = PLAYER_GAME_LOG[player.name] || [];
   if (!p) return null;
 
-  // Rolling batting AVG
+  // Rolling batting AVG — skip games with no logged box score (gm undefined)
+  // rather than crashing or silently treating them as 0-for-0.
   let cumH=0, cumAB=0;
   const rollingBat = log.map((gm,i)=>{
+    if (!gm) return null;
     cumH+=gm.h; cumAB+=gm.ab;
     return { game:GAMES[i].opp.split(" ")[0], avg:cumAB>0?parseFloat((cumH/cumAB).toFixed(3)):0, h:gm.h, ab:gm.ab, result:GAMES[i].result };
-  });
+  }).filter(Boolean);
 
   // Rolling pitching ERA (if they pitched)
   const pitchGames = pitch ? (() => {
@@ -837,6 +783,18 @@ function PlayerPopup({ player, onClose }) {
             {log.map((gm,i)=>{
               const res=GAMES[i].result;
               const rc=res==="W"?C.green:res==="L"?C.red:C.accent;
+              // gm is undefined when this game has no logged box score for this player
+              // (DNP or a data gap) — show a distinct "no data" tile instead of crashing
+              // or silently rendering it as a 0-for-0 game.
+              if (!gm) {
+                return (
+                  <div key={i} title="No box score logged for this game" style={{background:`${C.muted}10`,border:`1px dashed ${C.muted}55`,borderRadius:6,padding:"4px 6px",textAlign:"center",minWidth:40}}>
+                    <div style={{fontSize:7,color:C.subtext,marginBottom:1}}>{GAMES[i].opp.split(" ")[0]}</div>
+                    <div style={{fontSize:8,fontWeight:700,color:rc}}>{res}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:C.muted}}>?</div>
+                  </div>
+                );
+              }
               const hc=gm.ab===0?C.muted:gm.h>0?C.accent:C.subtext;
               return (
                 <div key={i} style={{background:`${rc}12`,border:`1px solid ${rc}40`,borderRadius:6,padding:"4px 6px",textAlign:"center",minWidth:40}}>
@@ -913,7 +871,7 @@ function PlayerPopup({ player, onClose }) {
 
 // ── PLAYER ROSTER TILES ───────────────────────────────────────────────────────
 function PlayerRosterTiles({ onSelect }) {
-  const order = [...ROSTER].sort((a,b) => a.num - b.num);
+  const order = [...ROSTER].filter(p => p.name !== "TEAM").sort((a,b) => a.num - b.num);
   return (
     <div style={{maxWidth:1100,margin:"20px auto 0"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
@@ -978,9 +936,9 @@ function PlayerRosterTiles({ onSelect }) {
 function HotColdSection({ selectedIdx }) {
   const isAll = selectedIdx.length === GAMES.length;
 
-  // Compute each player's H/AB:
-  // - Unfiltered (default): use last-3-games data from GAME_BATTING/GAME_AB
-  // - Filtered: sum PLAYER_GAME_LOG over selected games
+  // Compute each player's H/AB, both derived from PLAYER_GAME_LOG:
+  // - Unfiltered (default): last 3 games they actually had a plate appearance in
+  // - Filtered: summed over the selected games
   const withScore = ROSTER.map(p => {
     let h, ab, avg, score;
     if (isAll) {
@@ -1046,7 +1004,7 @@ function HotColdSection({ selectedIdx }) {
 
 // ── TEAM OPS CHART ────────────────────────────────────────────────────────────
 function TeamOPSChart({ isFiltered }) {
-  const sorted=[...ROSTER].sort((a,b)=>b.ops-a.ops);
+  const sorted=[...ROSTER].filter(p => p.name !== "TEAM").sort((a,b)=>b.ops-a.ops);
   const data=sorted.map(p=>({name:p.name.split(" ")[1]||p.name,ops:parseFloat(p.ops.toFixed(3)),isGrayson:p.name==="G Watkins"}));
   return (
     <Panel>
@@ -1188,25 +1146,15 @@ function RosterTable({ selectedIdx }) {
     else { setSortKey(null); setSortDir(1); }
   };
 
-  // Compute filtered roster from PLAYER_GAME_LOG when not showing all games
-  const filteredRoster = isAll ? ROSTER.map(p => ({...p, pa: p.ab + p.bb + p.hbp + p.sf})) : ROSTER.map(p => {
-    const log = PLAYER_GAME_LOG[p.name] || [];
-    let h=0,ab=0,r=0,d=0,t=0,hr=0,rbi=0,bb=0,hbp=0,sf=0,so=0,sb=0,gp=0;
-    selectedIdx.forEach(i => {
-      const gm = log[i]; if (!gm) return;
-      if ((gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0) gp++;
-      h+=gm.h||0; ab+=gm.ab||0; r+=gm.r||0; d+=gm.d||0; t+=gm.t||0; hr+=gm.hr||0;
-      rbi+=gm.rbi||0; bb+=gm.bb||0; hbp+=gm.hbp||0; sf+=gm.sf||0; so+=gm.so||0; sb+=gm.sb||0;
-    });
-    const singles = h - d - t - hr;
-    const tb = singles + 2*d + 3*t + 4*hr;
-    const avg = ab>0 ? h/ab : 0;
-    const pa = ab + bb + hbp + sf;
-    const obp = pa>0 ? (h+bb+hbp)/pa : 0;
-    const slg = ab>0 ? tb/ab : 0;
-    const ops = obp + slg;
-    return {name:p.name, num:p.num, g:gp, ab, pa, r, h, d, t, hr, tb, rbi, bb, hbp, sf, so, sb, avg, obp, slg, ops};
-  });
+  // Recompute every row (players + TEAM) over the selected games using the same
+  // aggregateStats/deriveTeamRow helpers the season ROSTER uses, so a filtered
+  // view and the season view can never drift apart the way they used to.
+  const filteredRoster = (() => {
+    const players = ALL_PLAYER_NAMES.map(name => ({
+      name, num: JERSEY_NUMBERS[name] ?? 0, ...aggregateStats(PLAYER_GAME_LOG[name], selectedIdx),
+    }));
+    return [...players, deriveTeamRow(players, selectedIdx.length)];
+  })();
 
   // Separate TEAM row from regular players for sorting
   const teamRow = filteredRoster.find(p => p.name === "TEAM");
@@ -1556,7 +1504,7 @@ export default function App() {
       <PlayerRosterTiles onSelect={setSelectedPlayer} />
 
       <div style={{maxWidth:1100,margin:"16px auto 0",fontSize:10,color:C.muted,textAlign:"center"}}>
-        Updated Jun 26 2026 · Stats verified by 3 independent agents · 11-8-1 through 20 games
+        Data through {GAMES[GAMES.length-1].date} · {SEASON_RECORD} ({GAMES.length} games) · Source: games-data.json
       </div>
     </div>
   );
