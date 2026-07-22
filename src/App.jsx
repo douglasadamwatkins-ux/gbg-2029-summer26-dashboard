@@ -165,14 +165,17 @@ function playerSubsetStats(name, selIdx) {
 }
 
 // Last 3 games the named player was actually in the lineup (had a PA: AB+BB+HBP+SF > 0)
-function last3InLineup(name) {
+function last4TeamGames(name) {
   const log = PLAYER_GAME_LOG[name] || [];
-  // gm can be undefined (no logged box score for that game) — must guard before reading fields
-  const inLineup = log.filter(gm => gm && (gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0) > 0);
-  const last3 = inLineup.slice(-3);
-  const h = last3.reduce((a, gm) => a + (gm.h||0), 0);
-  const ab = last3.reduce((a, gm) => a + (gm.ab||0), 0);
-  return { h, ab, games: last3.length };
+  const totalGames = GAMES_DATA.games.length;
+  // Get indices of last 4 games
+  const last4Indices = [];
+  for (let i = Math.max(0, totalGames - 4); i < totalGames; i++) {
+    last4Indices.push(i);
+  }
+  // Aggregate stats from those 4 games
+  const stats = aggregateStats(log, last4Indices);
+  return { h: stats.h, ab: stats.ab, games: stats.g };
 }
 
 // ── SUB-COMPONENTS ────────────────────────────────────────────────────────────
@@ -703,7 +706,7 @@ function PlayerPopup({ player, onClose }) {
     return null;
   })() : null;
 
-  const _ppL3=last3InLineup(p.name);
+  const _ppL3=last4TeamGames(p.name);
   const last3H=_ppL3.h, last3AB=_ppL3.ab;
 
   const BatDot=({cx,cy,payload})=>{
@@ -884,7 +887,7 @@ function PlayerRosterTiles({ onSelect }) {
         {order.map(p => {
           const isPitcher = !!PITCHING.find(r=>r.name===p.name);
           const isGrayson = p.name==="G Watkins";
-          const _l3=last3InLineup(p.name);
+          const _l3=last4TeamGames(p.name);
           const recentH=_l3.h;
           const recentAB=_l3.ab;
           const recentAvgVal = recentAB>0?recentH/recentAB:0;
@@ -942,7 +945,7 @@ function HotColdSection({ selectedIdx }) {
   const withScore = ROSTER.map(p => {
     let h, ab, avg, score;
     if (isAll) {
-      const l3 = last3InLineup(p.name);
+      const l3 = last4TeamGames(p.name);
       h = l3.h; ab = l3.ab;
       avg = ab > 0 ? h / ab : 0;
       score = avg;
