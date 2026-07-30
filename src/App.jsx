@@ -25,7 +25,7 @@ const JERSEY_NUMBERS = {
 };
 
 // One entry per game in GAMES_DATA.games, in the same order.
-const GRAYSON_POSITIONS = ["C","1B","C","1B","C","C","C","C","DNP","C","1B","C","DH","DH","C","EH","DNP","C","EH","C","DH","C","C","C","DNP"];
+const GRAYSON_POSITIONS = ["C","1B","C","1B","C","C","C","C","DNP","C","1B","C","DH","DH","C","EH","DNP","C","EH","C","DH","C","C","C","DNP","C","DH","DNP","C","1B","DNP","LF"];
 
 // ── TOURNAMENTS ──────────────────────────────────────────────────────────────
 const TOURNAMENT_META = [
