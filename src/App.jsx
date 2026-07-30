@@ -36,6 +36,7 @@ const TOURNAMENT_META = [
   {id:"ftc",         label:"Five Tool Colorado Legends",   color:C.accent},
   {id:"fttx",        label:"Five Tool Texas Summer",       color:C.teal},
   {id:"wwba",        label:"WWBA National Championship",   color:"#f59e0b"},
+  {id:"cd18ws",      label:"Colorado Denver 18U World Series", color:"#ec4899"},
 ];
 const TOURNAMENTS = TOURNAMENT_META.map(t => ({
   ...t,
