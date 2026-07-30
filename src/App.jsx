@@ -442,7 +442,7 @@ function GraysonHero({ selectedIdx }) {
               <div key={i} style={{background:`${rc}12`,border:`1px solid ${rc}55`,borderRadius:7,padding:"5px 9px",minWidth:52,textAlign:"center"}}>
                 <div style={{fontSize:8,color:C.subtext,marginBottom:1}}>{selGameLabels[i].opp.split(" ")[0]}</div>
                 <div style={{fontSize:9,fontWeight:700,color:rc,marginBottom:2}}>{res}</div>
-                <div style={{fontSize:12,fontWeight:700,color:hc}}>{gm.ab===0?"DNP":`${gm.h}/${gm.ab}`}</div>
+                <div style={{fontSize:12,fontWeight:700,color:hc}}>{((gm.ab||0)+(gm.bb||0)+(gm.hbp||0)+(gm.sf||0))===0?"DNP":`${gm.h}/${gm.ab}`}</div>
                 {gm.rbi>0&&<div style={{fontSize:8,color:C.teal}}>{gm.rbi} RBI</div>}
                 {gm.d>0&&<div style={{fontSize:8,color:C.accent}}>2B</div>}
                 <div style={{fontSize:8,color:C.muted,marginTop:2}}>{gm.pos}</div>
