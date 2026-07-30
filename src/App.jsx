@@ -885,15 +885,26 @@ function PlayerRosterTiles({ onSelect }) {
         <div style={{fontSize:10,color:C.muted}}>Tap any player for full season stats</div>
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {order.map(p => {
+        {(() => {
+          // Compute hot/cold using same ranking logic as HotColdSection
+          const withScore = order.map(p => {
+            const l3 = last4TeamGames(p.name);
+            const avg = l3.ab > 0 ? l3.h / l3.ab : 0;
+            return {...p, recentH: l3.h, recentAB: l3.ab, recentAvg: avg, hotScore: avg};
+          }).filter(p => p.recentAB > 0);
+          const sorted = [...withScore].sort((a,b)=>b.hotScore - a.hotScore);
+          const hotSet = new Set(sorted.slice(0,4).map(p=>p.name));
+          const coldSet = new Set([...withScore].filter(p => p.recentAB >= 3).sort((a,b)=>a.hotScore - b.hotScore).slice(0,3).map(p=>p.name));
+          
+          return order.map(p => {
           const isPitcher = !!PITCHING.find(r=>r.name===p.name);
           const isGrayson = p.name==="G Watkins";
           const _l3=last4TeamGames(p.name);
           const recentH=_l3.h;
           const recentAB=_l3.ab;
           const recentAvgVal = recentAB>0?recentH/recentAB:0;
-          const hot = recentAvgVal>=0.333 && recentAB>=2;
-          const cold = recentAvgVal===0 && recentAB>=3;
+          const hot = hotSet.has(p.name);
+          const cold = coldSet.has(p.name);
           const accentColor = isGrayson?C.accent:hot?C.green:cold?C.red:C.border;
           const avgColor = p.avg>=0.350?C.green:p.avg>=0.250?C.text:C.muted;
 
@@ -929,7 +940,8 @@ function PlayerRosterTiles({ onSelect }) {
               {isPitcher && <div style={{marginTop:4,fontSize:7,color:C.blue,fontWeight:700,letterSpacing:"0.05em",textTransform:"uppercase"}}>P</div>}
             </div>
           );
-        })}
+        });
+        })()}
       </div>
     </div>
   );
